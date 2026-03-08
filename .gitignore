@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv/
+venv/
+
+# Spark
+/tmp/fraud_checkpoints/
+spark-warehouse/
+derby.log
+metastore_db/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Docker volumes
+postgres_data/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Output from notebook
+docs/*.png
