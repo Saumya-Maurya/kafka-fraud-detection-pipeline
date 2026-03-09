@@ -1,0 +1,19 @@
+FROM bitnami/spark:3.4
+
+USER root
+
+# Install Python deps
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Download PostgreSQL JDBC driver
+RUN curl -fsSL \
+    https://jdbc.postgresql.org/download/postgresql-42.6.0.jar \
+    -o /opt/bitnami/spark/jars/postgresql-42.6.0.jar
+
+WORKDIR /app
+
+COPY schemas/  ./schemas/
+COPY consumer/ ./consumer/
+
+CMD ["python", "consumer/fraud_detection_consumer.py"]
