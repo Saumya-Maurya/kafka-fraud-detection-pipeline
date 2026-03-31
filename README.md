@@ -64,7 +64,7 @@ alerts to PostgreSQL — all runnable locally with a single command.
 
 - Docker Desktop (Mac/Windows) or Docker Engine + Compose (Linux)
 - 4 GB RAM available for containers
-- Ports 9092, 8080, 5432 free
+- Ports 9092, 8090, 5432 free
 
 ### Run (3 commands)
 
@@ -81,7 +81,7 @@ make logs
 
 Open Kafka UI to see messages flowing:
 ```
-http://localhost:8080
+http://localhost:8090
 ```
 
 Check fraud alerts in PostgreSQL:
