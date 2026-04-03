@@ -8,32 +8,7 @@ alerts to PostgreSQL — all runnable locally with a single command.
 
 ## Architecture
 
-```
-┌─────────────────────┐     ┌───────────────────┐     ┌─────────────────────────┐
-│  Transaction        │     │                   │     │  Spark Structured       │
-│  Generator          │────▶│  Apache Kafka     │────▶│  Streaming Consumer     │
-│                     │     │  (transactions)   │     │                         │
-│  • 23 txn/sec       │     │                   │     │  ┌─────────────────┐    │
-│  • 5,000 users      │     │                   │     │  │ Stateless Rules │    │
-│  • 4 fraud patterns │     │                   │     │  │ • High amount   │    │
-└─────────────────────┘     └───────────────────┘     │  │ • Intl ATM      │    │
-                                                       │  │ • Odd hours     │    │
-                                                       │  └────────┬────────┘    │
-                                                       │           │             │
-                                                       │  ┌────────▼────────┐    │
-                                                       │  │ Velocity Check  │    │
-                                                       │  │ (sliding window)│    │
-                                                       │  └────────┬────────┘    │
-                                                       └───────────┼─────────────┘
-                                                                   │
-                                              ┌────────────────────▼──────────────────┐
-                                              │             PostgreSQL                 │
-                                              │  ┌────────────┐  ┌──────────────────┐ │
-                                              │  │transactions│  │  fraud_alerts    │ │
-                                              │  │  (all txn) │  │  (flagged only)  │ │
-                                              │  └────────────┘  └──────────────────┘ │
-                                              └───────────────────────────────────────┘
-```
+[Interactive architecture diagram](https://saumya-maurya.github.io/kafka-fraud-detection-pipeline/architecture.html
 
 ## Key Stats
 
