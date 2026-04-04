@@ -8,7 +8,7 @@ alerts to PostgreSQL — all runnable locally with a single command.
 
 ## Architecture
 
-[Interactive architecture diagram](https://saumya-maurya.github.io/kafka-fraud-detection-pipeline/architecture.html
+**[Live architecture diagram](https://saumya-maurya.github.io/kafka-fraud-detection-pipeline/)** — interactive, click any component
 
 ## Key Stats
 
