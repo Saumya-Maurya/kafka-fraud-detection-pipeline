@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kafka Fraud Detection Pipeline — Architecture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg2: #f5f4f0;
+      --border: rgba(0,0,0,0.12);
+      --text: #1a1a18;
+      --text2: #5f5e5a;
+      --teal-fill: #E1F5EE;
+      --teal-stroke: #0F6E56;
+      --teal-text: #085041;
+      --purple-fill: #EEEDFE;
+      --purple-stroke: #534AB7;
+      --purple-text: #3C3489;
+      --amber-fill: #FAEEDA;
+      --amber-stroke: #854F0B;
+      --amber-text: #633806;
+      --gray-fill: #F1EFE8;
+      --gray-stroke: #5F5E5A;
+      --gray-text: #444441;
+      --red-fill: #FCEBEB;
+      --red-stroke: #A32D2D;
+      --red-text: #791F1F;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a18;
+        --bg2: #242422;
+        --border: rgba(255,255,255,0.12);
+        --text: #e8e6de;
+        --text2: #9c9a92;
+        --teal-fill: #085041;
+        --teal-stroke: #5DCAA5;
+        --teal-text: #9FE1CB;
+        --purple-fill: #3C3489;
+        --purple-stroke: #AFA9EC;
+        --purple-text: #CECBF6;
+        --amber-fill: #633806;
+        --amber-stroke: #EF9F27;
+        --amber-text: #FAC775;
+        --gray-fill: #444441;
+        --gray-stroke: #B4B2A9;
+        --gray-text: #D3D1C7;
+        --red-fill: #791F1F;
+        --red-stroke: #F09595;
+        --red-text: #F7C1C1;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      max-width: 640px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .card {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 760px;
+      margin-bottom: 1rem;
+    }
+
+    svg text { font-family: inherit; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 1rem;
+      border-top: 0.5px solid var(--border);
+      margin-top: 1rem;
+      font-size: 13px;
+      color: var(--text2);
+    }
+
+    input[type=range] { width: 100px; accent-color: var(--teal-stroke); }
+
+    button {
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 8px;
+      border: 0.5px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      margin-left: auto;
+    }
+    button:hover { background: var(--bg2); }
+
+    .detail-card {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      width: 100%;
+      max-width: 760px;
+      margin-bottom: 1rem;
+      min-height: 80px;
+      transition: opacity 0.2s;
+    }
+
+    .detail-card h2 { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+    .detail-card ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .detail-card li { font-size: 13px; color: var(--text2); line-height: 1.5; }
+    .detail-card li::before { content: "· "; }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-right: 6px;
+      font-weight: 500;
+    }
+    .badge-teal   { background: var(--teal-fill);   color: var(--teal-text);   border: 0.5px solid var(--teal-stroke); }
+    .badge-purple { background: var(--purple-fill); color: var(--purple-text); border: 0.5px solid var(--purple-stroke); }
+    .badge-amber  { background: var(--amber-fill);  color: var(--amber-text);  border: 0.5px solid var(--amber-stroke); }
+    .badge-red    { background: var(--red-fill);    color: var(--red-text);    border: 0.5px solid var(--red-stroke); }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      width: 100%;
+      max-width: 760px;
+      margin-bottom: 1rem;
+    }
+    .stat {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      text-align: center;
+    }
+    .stat-val { font-size: 20px; font-weight: 500; }
+    .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    footer {
+      font-size: 12px;
+      color: var(--text2);
+      text-align: center;
+      margin-top: 2rem;
+    }
+    footer a { color: var(--text2); }
+
+    @keyframes flow1 { 0%{stroke-dashoffset:60}  100%{stroke-dashoffset:0} }
+    @keyframes flow2 { 0%{stroke-dashoffset:80}  100%{stroke-dashoffset:0} }
+    @keyframes flow3 { 0%{stroke-dashoffset:100} 100%{stroke-dashoffset:0} }
+    @keyframes fraud-flash { 0%,100%{opacity:0} 40%,60%{opacity:1} }
+
+    .pipe1 { stroke-dasharray:8 4; animation: flow1 0.7s linear infinite; }
+    .pipe2 { stroke-dasharray:8 4; animation: flow2 0.9s linear infinite; }
+    .pipe3 { stroke-dasharray:8 4; animation: flow3 1.1s linear infinite; }
+    .pipe1.paused,.pipe2.paused,.pipe3.paused { animation-play-state: paused; opacity: 0.2; }
+    .fraud-dot { animation: fraud-flash 1.2s ease-in-out infinite; }
+
+    .node-box { cursor: pointer; transition: opacity 0.15s; }
+    .node-box:hover { opacity: 0.85; }
+
+    @media (max-width: 500px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Kafka Fraud Detection Pipeline</h1>
+  <p>
+    <span class="badge badge-teal">Kafka 7.4</span>
+    <span class="badge badge-amber">Spark 3.4</span>
+    <span class="badge badge-purple">PySpark</span>
+    <span class="badge badge-red">PostgreSQL 15</span>
+  </p>
+  <p style="margin-top:10px">Click any component to explore · Use controls to simulate throughput</p>
+</header>
+
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-val" id="s-sent">0</div>
+    <div class="stat-lbl">events sent</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-lag">—</div>
+    <div class="stat-lbl">avg latency</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-fraud">0</div>
+    <div class="stat-lbl">fraud alerts</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-rate">0.00%</div>
+    <div class="stat-lbl">fraud rate</div>
+  </div>
+</div>
+
+<div class="card">
+  <svg width="100%" viewBox="0 0 680 310" id="svg">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+
+    <!-- Producer -->
+    <g class="node-box" onclick="select('producer')">
+      <rect x="20" y="50" width="140" height="76" rx="8"
+        fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
+      <text x="90" y="78" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--teal-text)">Transaction</text>
+      <text x="90" y="96" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--teal-text)">generator</text>
+      <text x="90" y="114" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--teal-stroke)" id="lbl-tps">23 txn / sec</text>
+    </g>
+
+    <!-- Kafka -->
+    <g class="node-box" onclick="select('kafka')">
+      <rect x="250" y="50" width="150" height="76" rx="8"
+        fill="var(--purple-fill)" stroke="var(--purple-stroke)" stroke-width="0.5"/>
+      <text x="325" y="78" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--purple-text)">Apache Kafka</text>
+      <text x="325" y="96" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--purple-stroke)">transactions topic</text>
+      <text x="325" y="114" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--purple-stroke)">keyed by user_id</text>
+    </g>
+
+    <!-- Spark -->
+    <g class="node-box" onclick="select('spark')">
+      <rect x="480" y="30" width="180" height="116" rx="8"
+        fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
+      <text x="570" y="58" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--amber-text)">Spark streaming</text>
+      <text x="570" y="78" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--amber-stroke)">Stateless rules UDF</text>
+      <text x="570" y="96" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--amber-stroke)">Velocity window 60s</text>
+      <text x="570" y="114" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--amber-stroke)">sub-800ms latency</text>
+      <text x="570" y="132" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--amber-stroke)">foreachBatch sink</text>
+    </g>
+
+    <!-- PG: all -->
+    <g class="node-box" onclick="select('pg-all')">
+      <rect x="370" y="220" width="150" height="60" rx="8"
+        fill="var(--gray-fill)" stroke="var(--gray-stroke)" stroke-width="0.5"/>
+      <text x="445" y="244" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--gray-text)">PostgreSQL</text>
+      <text x="445" y="264" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--gray-stroke)">transactions (all)</text>
+    </g>
+
+    <!-- PG: fraud -->
+    <g class="node-box" onclick="select('pg-fraud')">
+      <rect x="544" y="220" width="116" height="60" rx="8"
+        fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+      <text x="602" y="244" text-anchor="middle" dominant-baseline="central"
+        style="font-size:14px;font-weight:500;fill:var(--red-text)">PostgreSQL</text>
+      <text x="602" y="264" text-anchor="middle" dominant-baseline="central"
+        style="font-size:12px;fill:var(--red-stroke)">fraud_alerts</text>
+    </g>
+
+    <!-- Pipes -->
+    <line id="pipe-pk" class="pipe1" x1="160" y1="88" x2="248" y2="88"
+      stroke="#1D9E75" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+    <line id="pipe-ks" class="pipe2" x1="400" y1="88" x2="478" y2="88"
+      stroke="#7F77DD" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+    <path id="pipe-sa" class="pipe3"
+      d="M570 146 L570 190 L445 190 L445 218"
+      stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+    <path id="pipe-sf" class="pipe3"
+      d="M590 146 L590 200 L602 200 L602 218"
+      stroke="#E24B4A" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+    <circle class="fraud-dot" cx="602" cy="200" r="5" fill="#E24B4A"/>
+
+    <!-- Counter labels -->
+    <text id="cnt-sent" x="90" y="140" text-anchor="middle"
+      style="font-size:11px;fill:var(--text2)">sent: 0</text>
+    <text id="cnt-lag"  x="325" y="140" text-anchor="middle"
+      style="font-size:11px;fill:var(--text2)">lag: —</text>
+    <text id="cnt-all"  x="445" y="294" text-anchor="middle"
+      style="font-size:11px;fill:var(--text2)">0 rows</text>
+    <text id="cnt-fraud" x="602" y="294" text-anchor="middle"
+      style="font-size:11px;fill:var(--text2)">0 alerts</text>
+  </svg>
+
+  <div class="controls">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" id="toggle-run" checked onchange="togglePipeline(this.checked)">
+      Pipeline running
+    </label>
+    <label style="display:flex;align-items:center;gap:6px">
+      TPS:
+      <input type="range" min="1" max="100" value="23" id="tps-slider" oninput="setTPS(this.value)">
+      <span id="tps-label">23</span>
+    </label>
+    <button onclick="resetAll()">Reset</button>
+  </div>
+</div>
+
+<div class="detail-card" id="detail-card">
+  <p style="font-size:13px;color:var(--text2)">Click any component above to see implementation details.</p>
+</div>
+
+<footer>
+  <a href="https://github.com/Saumya-Maurya/kafka-fraud-detection-pipeline" target="_blank">
+    github.com/Saumya-Maurya/kafka-fraud-detection-pipeline
+  </a>
+  &nbsp;·&nbsp; Built by Saumya Maurya
+</footer>
+
+<script>
+const DETAILS = {
+  producer: {
+    title: 'Transaction generator',
+    points: [
+      'Produces to Kafka at configurable TPS (default 23/sec = ~2M/day)',
+      'Partitioned by user_id to guarantee per-user ordering',
+      '5,000 synthetic users across 12 merchant categories',
+      'Fraud injector: high-amount, velocity burst, geo-anomaly, odd-hour patterns',
+      'File: producer/transaction_producer.py'
+    ]
+  },
+  kafka: {
+    title: 'Apache Kafka (Confluent 7.4)',
+    points: [
+      'Topic: transactions — 1 partition, replication factor 1 (local dev)',
+      'Key: user_id ensures all events for one user land on same partition',
+      'Producer settings: acks=all, retries=5, gzip compression, linger_ms=5',
+      'Kafka UI available at localhost:8090 to inspect topics and lag',
+      'Config: docker-compose.yml → kafka service'
+    ]
+  },
+  spark: {
+    title: 'Spark Structured Streaming (3.4)',
+    points: [
+      'readStream from Kafka, watermark 30s to handle late-arriving events',
+      'Stateless rules via PySpark UDF — sub-millisecond per row',
+      'Stateful velocity: sliding 60s window / 10s slide, count > 6 = fraud',
+      'Two foreachBatch sinks: all transactions + fraud alerts separately',
+      'File: consumer/fraud_detection_consumer.py'
+    ]
+  },
+  'pg-all': {
+    title: 'PostgreSQL — transactions table',
+    points: [
+      'All events written regardless of fraud status',
+      'Indexed on user_id and event_time DESC for dashboard queries',
+      'Columns: transaction_id, amount, merchant_category, final_is_fraud, final_rule',
+      'Powers the fraud_metrics hourly view used in the analysis notebook',
+      'File: scripts/init_db.sql'
+    ]
+  },
+  'pg-fraud': {
+    title: 'PostgreSQL — fraud_alerts table',
+    points: [
+      'Flagged events only — written in a separate foreachBatch query',
+      'Extra columns: fraud_confidence (0–1), fraud_reason (human-readable)',
+      'reviewed + true_positive columns for analyst feedback loop',
+      'Powers the rule_performance view showing precision per rule',
+      'File: scripts/init_db.sql'
+    ]
+  }
+};
+
+let running = true, tps = 23;
+let totalSent = 0, totalFraud = 0, intervalId;
+
+function fmt(n) {
+  return n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n);
+}
+
+function tick() {
+  if (!running) return;
+  const batch = Math.max(1, Math.round(tps / 10));
+  totalSent += batch;
+  if (Math.random() < 0.003 * batch) totalFraud++;
+  const lag = 200 + Math.floor(Math.random() * 600);
+  const rate = totalSent > 0 ? ((totalFraud/totalSent)*100).toFixed(2) : '0.00';
+
+  document.getElementById('s-sent').textContent  = fmt(totalSent);
+  document.getElementById('s-lag').textContent   = lag + 'ms';
+  document.getElementById('s-fraud').textContent = totalFraud;
+  document.getElementById('s-rate').textContent  = rate + '%';
+  document.getElementById('cnt-sent').textContent  = 'sent: ' + fmt(totalSent);
+  document.getElementById('cnt-lag').textContent   = 'lag: ' + lag + 'ms';
+  document.getElementById('cnt-all').textContent   = fmt(totalSent) + ' rows';
+  document.getElementById('cnt-fraud').textContent = totalFraud + ' alerts';
+}
+
+function togglePipeline(on) {
+  running = on;
+  ['pipe-pk','pipe-ks','pipe-sa','pipe-sf'].forEach(id => {
+    document.getElementById(id).classList.toggle('paused', !on);
+  });
+}
+
+function setTPS(v) {
+  tps = parseInt(v);
+  document.getElementById('tps-label').textContent = v;
+  document.getElementById('lbl-tps').textContent = v + ' txn / sec';
+  const d1 = (24/tps).toFixed(2)+'s';
+  const d2 = (32/tps).toFixed(2)+'s';
+  const d3 = (40/tps).toFixed(2)+'s';
+  document.querySelectorAll('.pipe1').forEach(e => e.style.animationDuration = d1);
+  document.querySelectorAll('.pipe2').forEach(e => e.style.animationDuration = d2);
+  document.querySelectorAll('.pipe3').forEach(e => e.style.animationDuration = d3);
+}
+
+function select(id) {
+  const d = DETAILS[id];
+  if (!d) return;
+  const card = document.getElementById('detail-card');
+  card.innerHTML = `<h2>${d.title}</h2><ul>${d.points.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+}
+
+function resetAll() {
+  totalSent = 0; totalFraud = 0;
+  ['s-sent','s-fraud'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('s-lag').textContent = '—';
+  document.getElementById('s-rate').textContent = '0.00%';
+  ['cnt-sent','cnt-lag','cnt-all','cnt-fraud'].forEach(id => {
+    document.getElementById(id).textContent = id === 'cnt-lag' ? 'lag: —' : (id.includes('fraud') ? '0 alerts' : id === 'cnt-all' ? '0 rows' : 'sent: 0');
+  });
+  document.getElementById('detail-card').innerHTML = '<p style="font-size:13px;color:var(--text2)">Click any component above to see implementation details.</p>';
+}
+
+intervalId = setInterval(tick, 100);
+</script>
+
+</body>
+</html>
